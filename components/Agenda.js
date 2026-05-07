@@ -619,7 +619,11 @@ export default function Agenda() {
                 />
 
                 {(perfil?.role === "admin" || perfil?.role === "owner") && (
-                    <NavButton href="/financeiro">
+                    <NavButton
+                        href="/financeiro"
+                        pathname={pathname}
+                        router={router}
+                    >
                         Financeiro
                     </NavButton>
                 )}
