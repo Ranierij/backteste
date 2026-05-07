@@ -105,6 +105,7 @@ export default function Agenda() {
     const [isMobile, setIsMobile] = useState(false)
 
     const [larguraColuna, setLarguraColuna] = useState(140)
+    const [autoColunas, setAutoColunas] = useState(true)
 
     const larguraHora = isMobile ? 60 : 80
 
@@ -659,29 +660,53 @@ export default function Agenda() {
                             Configurações
                         </h2>
 
+
                         {/* LARGURA */}
                         <div className="mb-6">
 
                             <div className="flex items-center justify-between mb-2">
+
                                 <span className="text-sm text-gray-600">
                                     Largura das colunas
                                 </span>
 
-                                <span className="text-xs text-gray-400">
-                                    {larguraColuna}px
-                                </span>
+                                <div className="flex items-center gap-2">
+
+                                    <label className="flex items-center gap-1 text-xs text-gray-500">
+
+                                        <input
+                                            type="checkbox"
+                                            checked={autoColunas}
+                                            onChange={() =>
+                                                setAutoColunas(!autoColunas)
+                                            }
+                                        />
+
+                                        Auto
+                                    </label>
+
+                                    {!autoColunas && (
+                                        <span className="text-xs text-gray-400">
+                                            {larguraColuna}px
+                                        </span>
+                                    )}
+
+                                </div>
+
                             </div>
 
-                            <input
-                                type="range"
-                                min="80"
-                                max="260"
-                                value={larguraColuna}
-                                onChange={(e) =>
-                                    setLarguraColuna(Number(e.target.value))
-                                }
-                                className="w-full"
-                            />
+                            {!autoColunas && (
+                                <input
+                                    type="range"
+                                    min="80"
+                                    max="260"
+                                    value={larguraColuna}
+                                    onChange={(e) =>
+                                        setLarguraColuna(Number(e.target.value))
+                                    }
+                                    className="w-full"
+                                />
+                            )}
 
                         </div>
 
@@ -803,7 +828,9 @@ export default function Agenda() {
                         <div
                             className="grid"
                             style={{
-                                gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
+                                gridTemplateColumns: autoColunas
+                                    ? `${larguraHora}px repeat(${colaboradoresVisiveis.length}, minmax(150px, 1fr))`
+                                    : `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
                                 width: "max-content"
                             }}
                         >
@@ -833,7 +860,9 @@ export default function Agenda() {
                                 key={hora}
                                 className="grid"
                                 style={{
-                                    gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
+                                    gridTemplateColumns: autoColunas
+                                        ? `${larguraHora}px repeat(${colaboradoresVisiveis.length}, minmax(150px, 1fr))`
+                                        : `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
                                     width: "max-content"
                                 }}
                             >
