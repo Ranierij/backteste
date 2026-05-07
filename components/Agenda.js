@@ -803,9 +803,11 @@ export default function Agenda() {
                         <div
                             className="grid"
                             style={{
-                                gridTemplateColumns: `80px repeat(${colaboradoresVisiveis.length}, minmax(${larguraColuna}px, 1fr))`
+                                gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
+                                width: "max-content"
                             }}
                         >
+
                             <div></div>
                             {colaboradoresVisiveis.map(id => {
 
@@ -831,7 +833,8 @@ export default function Agenda() {
                                 key={hora}
                                 className="grid"
                                 style={{
-                                    gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, minmax(${larguraColuna}px, 1fr))`
+                                    gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, ${larguraColuna}px)`,
+                                    width: "max-content"
                                 }}
                             >
 
