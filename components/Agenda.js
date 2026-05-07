@@ -759,19 +759,34 @@ export default function Agenda() {
                         {/* CENTRO (DATA) */}
                         <button
                             onClick={() => setMostrarCalendario(true)}
-                            className="flex flex-col items-center justify-center px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                            className="
+        flex items-center gap-6
+        px-6 py-3
+        rounded-xl
+        hover:bg-gray-100
+        transition
+    "
                         >
-                            <span className="text-lg font-semibold leading-none">
-                                {data.getDate()}
+
+                            {/* SETA ESQUERDA */}
+                            <span className="text-blue-500 text-2xl">
+                                ‹
                             </span>
 
-                            <span className="text-xs text-gray-500 uppercase">
-                                {data.toLocaleDateString("pt-BR", { month: "short" })}
+                            {/* DATA */}
+                            <div className="text-3xl font-semibold text-gray-800 capitalize">
+                                {data.toLocaleDateString("pt-BR", {
+                                    weekday: "long",
+                                    day: "2-digit",
+                                    month: "long"
+                                })}
+                            </div>
+
+                            {/* SETA DIREITA */}
+                            <span className="text-blue-500 text-2xl">
+                                ›
                             </span>
 
-                            <span className="text-[10px] text-gray-400">
-                                {data.getFullYear()}
-                            </span>
                         </button>
 
                         {/* DIREITA */}
