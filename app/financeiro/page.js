@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function Financeiro() {
 
@@ -13,11 +14,18 @@ export default function Financeiro() {
     const [clientes, setClientes] = useState([])
     const [verDetalhes, setVerDetalhes] = useState(false)
     const [colaboradores, setColaboradores] = useState([])
+    const [empresaId, setEmpresaId] = useState(null)
+    const { user } = useAuth()
 
     const hoje = new Date()
 
     const carregar = async () => {
-        const { data: ag } = await supabase.from("agendamentos").select("*")
+        if (!empresaId) return
+
+        const { data: ag } = await supabase
+            .from("agendamentos")
+            .select("*")
+            .eq("empresa_id", empresaId)
         const { data: cl } = await supabase.from("clientes").select("*")
         const { data: col } = await supabase.from("colaboradores").select("*")
 
@@ -28,8 +36,34 @@ export default function Financeiro() {
     }
 
     useEffect(() => {
-        carregar()
-    }, [])
+        carregarEmpresa()
+    }, [user])
+
+    async function carregarEmpresa() {
+
+        if (!user) return
+
+        const { data, error } = await supabase
+            .from("perfis")
+            .select("empresa_id")
+            .eq("user_id", user.id)
+            .single()
+
+        if (error) {
+            console.log(error)
+            return
+        }
+
+        console.log("EMPRESA:", data.empresa_id)
+
+        setEmpresaId(data.empresa_id)
+    }
+
+    useEffect(() => {
+        if (empresaId) {
+            carregar()
+        }
+    }, [empresaId])
 
     function getCliente(id) {
         return clientes.find(c => c.id === id)

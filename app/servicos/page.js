@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 
 export default function Servicos() {
@@ -14,6 +15,7 @@ export default function Servicos() {
     const [duracao, setDuracao] = useState("")
     const [servicos, setServicos] = useState([])
     const [editandoId, setEditandoId] = useState(null)
+    const { user } = useAuth()
 
     useEffect(() => {
         carregarServicos()
@@ -63,10 +65,27 @@ export default function Servicos() {
         const { data: authData } = await supabase.auth.getUser()
         const userId = authData?.user?.id || null
 
+        if (!userId) {
+            alert("Usuário não autenticado")
+            return
+        }
+
+        // 🔥 BUSCAR PERFIL (empresa)
+        const { data: perfil, error: perfilError } = await supabase
+            .from("perfis")
+            .select("empresa_id")
+            .eq("user_id", userId)
+            .single()
+
+        if (perfilError) {
+            alert("Erro ao buscar empresa")
+            return
+        }
+
         let error
 
         if (editandoId) {
-            // 🔥 UPDATE
+            // 🔥 UPDATE (MANTIDO IGUAL)
             const res = await supabase
                 .from("servicos")
                 .update({
@@ -77,15 +96,16 @@ export default function Servicos() {
                 .eq("id", editandoId)
 
             error = res.error
+
         } else {
-            // 🔥 INSERT
+            // 🔥 INSERT (SÓ CORRIGIDO AQUI)
             const res = await supabase
                 .from("servicos")
                 .insert({
                     nome,
-                    valor,
-                    duracao,
-                    user_id: authData.user.id,
+                    valor: parseFloat(valor),
+                    duracao: duracao ? parseInt(duracao) : null,
+                    user_id: userId,
                     empresa_id: perfil.empresa_id
                 })
 
@@ -105,7 +125,6 @@ export default function Servicos() {
 
         carregarServicos()
     }
-
     return (
         <div className="min-h-screen bg-gray-100 flex justify-center items-start p-6">
             <div className="w-full max-w-xl bg-white rounded-2xl shadow p-8 space-y-4">
