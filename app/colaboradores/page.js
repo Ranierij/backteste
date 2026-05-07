@@ -3,17 +3,44 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function Colaboradores() {
 
     const router = useRouter()
+    const { user } = useAuth()
 
     const [nome, setNome] = useState("")
     const [colaboradores, setColaboradores] = useState([])
+    const [empresaId, setEmpresaId] = useState(null)
 
     useEffect(() => {
+
         carregar()
-    }, [])
+
+        async function carregarPerfil() {
+
+            if (!user) return
+
+            const { data, error } = await supabase
+                .from("perfis")
+                .select("*")
+                .eq("user_id", user.id)
+                .single()
+
+            if (error) {
+                console.log(error)
+                return
+            }
+
+            console.log("EMPRESA:", data.empresa_id)
+
+            setEmpresaId(data.empresa_id)
+        }
+
+        carregarPerfil()
+
+    }, [user])
 
     async function carregar() {
         const { data } = await supabase
@@ -28,13 +55,19 @@ export default function Colaboradores() {
 
         if (!nome) return alert("Nome obrigatório")
 
-        const { data: authData } = await supabase.auth.getUser()
+        if (!empresaId) {
+            alert("Empresa não carregada")
+            return
+        }
 
+        const { data: authData } = await supabase.auth.getUser()
+        console.log("EMPRESA ID:", empresaId)
         const { error } = await supabase
             .from("colaboradores")
             .insert({
                 nome,
-                user_id: authData?.user?.id
+                user_id: authData?.user?.id,
+                empresa_id: empresaId
             })
 
         if (error) {

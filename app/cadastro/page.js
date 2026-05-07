@@ -5,31 +5,93 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Cadastro() {
-    const [email, setEmail] = useState('')
-    const [senha, setSenha] = useState('')
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
     const [mostrarSenha, setMostrarSenha] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [nomeEmpresa, setNomeEmpresa] = useState("")
+    const [empresaId, setEmpresaId] = useState(null)
+
 
     const router = useRouter()
 
     const cadastrar = async () => {
+        if (loading) return
         setLoading(true)
 
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password: senha
-        })
-
-        if (error) {
-            alert(error.message)
+        // 🔥 VALIDAÇÕES
+        if (!nomeEmpresa) {
+            alert("Informe o nome da empresa")
             setLoading(false)
             return
         }
 
-        alert('Cadastro realizado! Verifique seu email 📩')
+        if (!email || !password) {
+            alert("Preencha email e senha")
+            setLoading(false)
+            return
+        }
+
+        if (password.length < 6) {
+            alert("A senha precisa ter no mínimo 6 caracteres")
+            setLoading(false)
+            return
+        }
+
+        if (!email.includes("@")) {
+            alert("Email inválido")
+            setLoading(false)
+            return
+        }
+
+        // 🔥 CRIA USUÁRIO
+        const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password
+        })
+
+        if (signUpError) {
+            alert(signUpError.message)
+            setLoading(false)
+            return
+        }
+
+        // 🔥 LOGIN AUTOMÁTICO
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        })
+
+        if (loginError) {
+            alert("Conta criada, mas erro ao logar automaticamente")
+            setLoading(false)
+            return
+        }
+
+        // 🔥 ESPERA SESSÃO (CRÍTICO)
+        let user = null
+
+        for (let i = 0; i < 5; i++) {
+            const { data } = await supabase.auth.getUser()
+            user = data?.user
+
+            if (user) break
+
+            await new Promise(res => setTimeout(res, 300))
+        }
+
+        if (!user) {
+            alert("Erro ao autenticar usuário")
+            setLoading(false)
+            return
+        }
+
+
+
+        alert("Conta criada com sucesso")
         setLoading(false)
 
-        router.push('/login')
+        router.push('/agenda')
     }
 
     return (
@@ -50,6 +112,14 @@ export default function Cadastro() {
                     {/* INPUTS */}
                     <div className="space-y-3 text-left">
 
+                        {/* 🔥 NOME DA EMPRESA */}
+                        <input
+                            placeholder="Nome da empresa"
+                            value={nomeEmpresa}
+                            onChange={(e) => setNomeEmpresa(e.target.value)}
+                            className="w-full p-3 border rounded-md bg-white"
+                        />
+
                         <input
                             placeholder="Email"
                             className="w-full p-3 border rounded-md bg-white"
@@ -58,10 +128,10 @@ export default function Cadastro() {
 
                         <div className="relative">
                             <input
-                                type={mostrarSenha ? 'text' : 'password'}
-                                placeholder="Senha"
-                                className="w-full p-3 border rounded-md bg-white pr-10"
-                                onChange={e => setSenha(e.target.value)}
+                                type={mostrarSenha ? "text" : "password"} placeholder="Senha"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full border p-3 rounded-lg"
                             />
 
                             <span

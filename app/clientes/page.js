@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import DatePicker, { registerLocale } from "react-datepicker"
@@ -17,14 +17,37 @@ export default function NovoCliente() {
     const [nome, setNome] = useState("")
     const [telefone, setTelefone] = useState("")
     const [nascimento, setNascimento] = useState(null)
-    const [cpf, setCpf] = useState("")
+    const [busca, setBusca] = useState("")
 
+    const [clientes, setClientes] = useState([])
+    const [modalNovo, setModalNovo] = useState(false)
     const [endereco, setEndereco] = useState("")
     const [numero, setNumero] = useState("")
     const [cep, setCep] = useState("")
     const [bairro, setBairro] = useState("")
     const [cidade, setCidade] = useState("")
     const [estado, setEstado] = useState("")
+
+    useEffect(() => {
+        carregarClientes()
+    }, [])
+
+    async function carregarClientes() {
+
+        const { data, error } = await supabase
+            .from("clientes")
+            .select("*")
+            .order("nome")
+
+        if (error) {
+            console.log(error)
+            return
+        }
+
+        console.log("CLIENTES:", data)
+
+        setClientes(data || [])
+    }
 
     async function salvar() {
         const { data } = await supabase.auth.getSession()
@@ -52,6 +75,10 @@ export default function NovoCliente() {
 
         const userId = authData.user.id
 
+        const nascimentoFormatado = nascimento
+            ? nascimento.toISOString().split("T")[0]
+            : null
+
         const { data: existente } = await supabase
             .from("clientes")
             .select("*")
@@ -68,7 +95,7 @@ export default function NovoCliente() {
         const { error } = await supabase.from("clientes").insert({
             nome,
             telefone,
-            //nascimento: nascimentoFormatado,
+            nascimento: nascimentoFormatado,
             //cpf,//
             //endereco,
             // numero,
@@ -93,90 +120,135 @@ export default function NovoCliente() {
     }
 
 
+    const clientesFiltrados = clientes.filter(cliente =>
+        cliente.nome?.toLowerCase().includes(
+            busca.toLowerCase()
+        )
+    )
 
     return (
-        <div className="min-h-screen bg-gray-100 flex justify-center items-start p-6">
-            <div className="w-full max-w-xl bg-white rounded-2xl shadow p-8 space-y-4">
+        <div className="min-h-screen bg-white">
 
-                {/* HEADER */}
-                <div className="flex items-center mb-6">
+            {/* HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+
+                {/* ESQUERDA */}
+                <div className="flex items-center gap-4">
+
                     <button
-                        onClick={() => router.back()}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 transition group"
+                        onClick={() => router.push("/agenda")}
+                        className="
+                w-10 h-10
+                rounded-full
+                hover:bg-gray-100
+                transition
+                flex items-center justify-center
+                text-xl
+            "
                     >
-                        <svg
-                            className="w-5 h-5 stroke-gray-700 transition-transform duration-300 group-hover:-translate-x-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="2.5"
-                            stroke="currentColor"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
-                        </svg>
+                        ←
                     </button>
 
-                    <h1 className="flex-1 text-center text-xl font-bold text-gray-800">
-                        Novo Cliente
+                    <h1 className="text-2xl font-semibold">
+                        Clientes
                     </h1>
 
-                    {/* Espaço para balancear o layout */}
-                    <div className="w-10" />
                 </div>
 
-                {/* FORM */}
-                <div className="space-y-4">
+                {/* DIREITA */}
+                <div className="flex items-center gap-4">
 
-                    <h2 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
-                        Informações pessoais
-                    </h2>
-
-                    <input
-                        placeholder="Nome"
-                        value={nome}
-                        onChange={(e) => setNome(e.target.value)}
-                        className="w-full border p-3 rounded-lg"
-                    />
-
-                    <input
-                        type="text"
-                        placeholder="Telefone"
-                        value={telefone}
-                        onChange={(e) => {
-                            let v = e.target.value.replace(/\D/g, "")
-
-                            if (v.length > 11) v = v.slice(0, 11)
-
-                            if (v.length > 6)
-                                v = `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`
-                            else if (v.length > 2)
-                                v = `(${v.slice(0, 2)}) ${v.slice(2)}`
-                            else
-                                v = v
-
-                            setTelefone(v)
-                        }}
-                        className="w-full border p-2 mb-3 rounded"
-                    />
-
-
-
-
-
+                    <button
+                        onClick={() => router.push("/clientes/novo")}
+                        className="
+                w-10 h-10
+                rounded-full
+                bg-black
+                text-white
+                text-2xl
+                flex items-center justify-center
+            "
+                    >
+                        +
+                    </button>
 
                 </div>
-
-                {/* BOTÃO EMBAIXO */}
-                <button
-                    onClick={salvar}
-                    className="w-full bg-blue-600 text-white p-3 rounded-xl font-semibold text-lg shadow-md hover:bg-blue-700 active:scale-95 transition"                >
-                    Salvar
-                </button>
-
-                <p className="text-xs text-center text-gray-400 mt-4">
-                    Seus dados são protegidos conforme a política de privacidade
-                </p>
 
             </div>
+
+            {/* BARRA BUSCA */}
+            <div className="flex items-center gap-4 px-6 py-3 border-b">
+
+                <select className="border rounded px-3 py-2 text-sm">
+                    <option>Todos os Clientes</option>
+                </select>
+
+                <input
+                    type="text"
+                    placeholder="Procurar por nome, telefone ou CPF..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    className="
+                    flex-1
+                    border
+                    rounded
+                    px-4
+                    py-2
+                    text-sm
+                    outline-none
+                "
+                />
+
+            </div>
+
+            {/* LISTA */}
+            <div>
+
+                {clientesFiltrados.map(cliente => (
+
+                    <div
+                        key={cliente.id}
+                        className="
+                        flex items-center justify-between
+                        px-6 py-4
+                        border-b
+                        hover:bg-gray-50
+                        transition
+                    "
+                    >
+
+                        <div className="flex items-center gap-4">
+
+                            <input type="checkbox" />
+
+                            <div
+                                className="
+                                w-10 h-10
+                                rounded-full
+                                bg-gray-200
+                            "
+                            />
+
+                            <div>
+
+                                <div className="font-medium">
+                                    {cliente.nome}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <button className="text-gray-500 text-xl">
+                            ⋮
+                        </button>
+
+                    </div>
+
+                ))}
+
+            </div>
+
         </div>
     )
 }

@@ -11,8 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 
 
 function NavButton({ href, children, pathname, router }) {
-    const ativo = pathname.startsWith(href)
-
+    const ativo = pathname?.startsWith(href)
     return (
         <button
             onClick={() => router.push(href)}
@@ -65,8 +64,11 @@ export default function Agenda() {
     const [data, setData] = useState(new Date())
     const [agendamentos, setAgendamentos] = useState([])
     const [clientes, setClientes] = useState([])
+    const [empresaId, setEmpresaId] = useState(null)
+    const [perfil, setPerfil] = useState(null)
     const [mostrarCalendario, setMostrarCalendario] = useState(false)
     const [mesAtual, setMesAtual] = useState(new Date())
+
 
 
     const [modalNovo, setModalNovo] = useState(false)
@@ -95,14 +97,18 @@ export default function Agenda() {
 
     const [colaboradores, setColaboradores] = useState([])
     const [colaboradorId, setColaboradorId] = useState("")
-    const [colaboradorFiltro, setColaboradorFiltro] = useState("")
 
 
     const HORA_ALTURA = 80 // px por hora
     const PIXEL_POR_MINUTO = HORA_ALTURA / 60
+
     const [isMobile, setIsMobile] = useState(false)
-    const larguraColuna = isMobile ? 90 : 140
+
+    const [larguraColuna, setLarguraColuna] = useState(140)
+
     const larguraHora = isMobile ? 60 : 80
+
+    const [colaboradoresVisiveis, setColaboradoresVisiveis] = useState([])
 
     const HORA_INICIO = 8
     const HORA_FIM = 22
@@ -116,65 +122,134 @@ export default function Agenda() {
 
 
     const carregar = useCallback(async () => {
-        if (!user) return
+        if (!user || !empresaId) return
 
         try {
-            const [agRes, clRes, svRes, colRes] = await Promise.all([
+
+            const [
+                agRes,
+                clRes,
+                svRes,
+                colRes,
+                perfilRes
+            ] = await Promise.all([
+
                 supabase
                     .from("agendamentos")
                     .select("*")
-                    .eq("user_id", user.id),
+                    .eq("empresa_id", empresaId),
 
                 supabase
                     .from("clientes")
                     .select("*")
-                    .eq("user_id", user.id),
+                    .eq("empresa_id", empresaId),
 
                 supabase
                     .from("servicos")
                     .select("*")
-                    .eq("user_id", user.id),
+                    .eq("empresa_id", empresaId),
 
                 supabase
                     .from("colaboradores")
                     .select("*")
-                    .eq("user_id", user.id),
+                    .eq("empresa_id", empresaId),
+
+                supabase
+                    .from("perfis")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .single()
+
             ])
+
+            console.log("PERFIL:", perfilRes.data)
+
+            setPerfil(perfilRes.data)
 
             setAgendamentos(agRes.data || [])
             setClientes(clRes.data || [])
             setServicos(svRes.data || [])
-            setColaboradores(colRes.data || [])
+            const cols = colRes.data || []
+
+            console.log("COLABORADORES:", cols)
+
+            setColaboradores(cols)
+
+
+            setColaboradoresVisiveis(prev => {
+                if (prev.length > 0) return prev
+                return cols.map(c => c.id)
+            })
 
         } catch (err) {
             console.error("Erro ao carregar:", err)
         }
-    }, [user]) // 👈 CRÍTICO
+    }, [user, empresaId]) // 👈 CRÍTICO
+
+
+
 
 
     useEffect(() => {
-        if (!user) return
-        carregar()
-    }, [user, data, carregar])
+
+        async function carregarPerfil() {
+
+            if (!user) return
+
+            const { data, error } = await supabase
+                .from("perfis")
+                .select("*")
+                .eq("user_id", user.id)
+                .single()
+
+            if (error) {
+                console.log("ERRO PERFIL:", error)
+                return
+            }
+
+            console.log("PERFIL:", data)
+
+            setPerfil(data)
+            setEmpresaId(data.empresa_id)
+        }
+
+        carregarPerfil()
+
+    }, [user])
+
+    useEffect(() => {
+        if (empresaId) {
+            carregar()
+        }
+    }, [empresaId, carregar])
+
+    useEffect(() => {
+        if (colaboradores.length > 0) {
+            setColaboradoresVisiveis(
+                colaboradores.map(c => c.id)
+            )
+        }
+    }, [colaboradores])
 
     useEffect(() => {
         function handleResize() {
             setIsMobile(window.innerWidth < 768)
         }
 
-        handleResize() // roda quando abre a tela
+        handleResize()
 
         window.addEventListener("resize", handleResize)
-
-        if (loading) return <div>Carregando...</div>
-        if (!user) return null
-
 
         return () => {
             window.removeEventListener("resize", handleResize)
         }
     }, [])
 
+    // todos useState, useEffect, useCallback aqui em cima
+
+    if (loading) return <div>Carregando usuário...</div>
+    if (!empresaId) return <div>Carregando empresa...</div>
+    if (!user) return null
 
     function formatarData(d) {
         return d.toLocaleDateString("pt-BR")
@@ -191,17 +266,6 @@ export default function Agenda() {
         setModalNovo(true)
     }
 
-    function proximoMes() {
-        const novo = new Date(mesAtual)
-        novo.setMonth(novo.getMonth() + 1)
-        setMesAtual(novo)
-    }
-
-    function mesAnterior() {
-        const novo = new Date(mesAtual)
-        novo.setMonth(novo.getMonth() - 1)
-        setMesAtual(novo)
-    }
 
     function abrirEvento(evt) {
         setEventoSelecionado(evt)
@@ -212,6 +276,7 @@ export default function Agenda() {
     function getCliente(id) {
         return clientes.find(c => c.id === id)
     }
+
 
     function getColaborador(id) {
         return colaboradores.find(c => c.id === id)
@@ -230,14 +295,24 @@ export default function Agenda() {
         return cores[index % cores.length]
     }
 
+    function toggleColaborador(id) {
+
+        setColaboradoresVisiveis(prev => {
+
+            if (prev.includes(id)) {
+                return prev.filter(c => c !== id)
+            }
+
+            return [...prev, id]
+        })
+    }
+
     function getEventosHora(hora) {
         return agendamentos.filter(a => {
             if (!a.inicio || !a.fim) return false
 
             // 🔥 filtro por colaborador
-            if (colaboradorFiltro && a.colaborador_id !== colaboradorFiltro) {
-                return false
-            }
+
 
             const inicio = new Date(a.inicio.replace(" ", "T"))
             const fim = new Date(a.fim.replace(" ", "T"))
@@ -464,9 +539,7 @@ export default function Agenda() {
         window.open(`https://wa.me/55${numero}`, "_blank")
     }
 
-    const listaColaboradores = colaboradorFiltro
-        ? colaboradores.filter(c => c.id === colaboradorFiltro)
-        : colaboradores
+
     return (
         <div className="flex flex-col min-h-screen pb-20 md:pb-0">
 
@@ -484,18 +557,21 @@ export default function Agenda() {
                     Clientes
                 </NavButton>
 
-                <NavButton href="/colaboradores" pathname={pathname} router={router}>
-
-                    Colaboradores
-                </NavButton>
+                {(perfil?.role === "admin" || perfil?.role === "owner") && (
+                    <NavButton href="/colaboradores" pathname={pathname} router={router}>
+                        Colaboradores
+                    </NavButton>
+                )}
 
                 <NavButton href="/servicos" pathname={pathname} router={router}>
                     Serviços
                 </NavButton>
 
-                <NavButton href="/financeiro" pathname={pathname} router={router}>
-                    Financeiro
-                </NavButton>
+                {(perfil?.role === "admin" || perfil?.role === "owner") && (
+                    <NavButton href="/financeiro">
+                        Financeiro
+                    </NavButton>
+                )}
 
                 <button
                     onClick={() => setModalNovo(true)}
@@ -522,12 +598,13 @@ export default function Agenda() {
                     onClick={() => router.push("/clientes")}
                 />
 
-                <MobileNavItem
+                {(perfil?.role === "admin" || perfil?.role === "owner") && (<MobileNavItem
                     icon={<User size={20} />}
                     label="Colab"
                     active={pathname.startsWith("/colaboradores")}
                     onClick={() => router.push("/colaboradores")}
                 />
+                )}
 
                 <MobileNavItem
                     icon={<Scissors size={20} />}
@@ -536,12 +613,11 @@ export default function Agenda() {
                     onClick={() => router.push("/servicos")}
                 />
 
-                <MobileNavItem
-                    icon={<Wallet size={20} />}
-                    label="Financeiro"
-                    active={pathname.startsWith("/financeiro")}
-                    onClick={() => router.push("/financeiro")}
-                />
+                {(perfil?.role === "admin" || perfil?.role === "owner") && (
+                    <NavButton href="/financeiro">
+                        Financeiro
+                    </NavButton>
+                )}
 
             </div>
 
@@ -565,11 +641,95 @@ export default function Agenda() {
             <div className="flex flex-col md:flex-row flex-1">
 
                 {/* SIDEBAR */}
-                <div className="hidden md:flex w-64 bg-white border-r flex-col p-4">
+                <div className="hidden md:flex w-72 bg-white border-r flex-col p-4 overflow-y-auto">
 
+                    {/* CONFIGURAÇÕES */}
+                    <div className="mb-6">
 
+                        <h2 className="text-lg font-semibold mb-4">
+                            Configurações
+                        </h2>
 
-                    <div className="mt-4 bg-gray-300 h-72 flex items-center justify-center rounded">
+                        {/* LARGURA */}
+                        <div className="mb-6">
+
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-gray-600">
+                                    Largura das colunas
+                                </span>
+
+                                <span className="text-xs text-gray-400">
+                                    {larguraColuna}px
+                                </span>
+                            </div>
+
+                            <input
+                                type="range"
+                                min="80"
+                                max="260"
+                                value={larguraColuna}
+                                onChange={(e) =>
+                                    setLarguraColuna(Number(e.target.value))
+                                }
+                                className="w-full"
+                            />
+
+                        </div>
+
+                        {/* PROFISSIONAIS */}
+                        <div>
+
+                            <div className="text-sm font-medium text-gray-700 mb-3">
+                                Profissionais
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+
+                                {colaboradores
+                                    .filter(col => colaboradoresVisiveis.includes(col.id))
+                                    .map(col => (
+
+                                        <label
+                                            key={col.id}
+                                            className="
+                            flex items-center gap-3
+                            p-2 rounded-lg
+                            hover:bg-gray-100
+                            cursor-pointer
+                            transition
+                        "
+                                        >
+
+                                            <input
+                                                type="checkbox"
+                                                checked={colaboradoresVisiveis.includes(col.id)}
+                                                onChange={() => toggleColaborador(col.id)}
+                                                className="w-4 h-4"
+                                            />
+
+                                            <div
+                                                className={`
+                                w-3 h-3 rounded-full
+                                ${getCorColaborador(col.id)}
+                            `}
+                                            />
+
+                                            <span className="text-sm">
+                                                {col.nome}
+                                            </span>
+
+                                        </label>
+
+                                    ))}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {/* ADS */}
+                    <div className="mt-auto bg-gray-300 h-72 flex items-center justify-center rounded">
                         Ads 💰
                     </div>
 
@@ -615,59 +775,31 @@ export default function Agenda() {
 
                     </div>
 
-                    <div className="overflow-x-auto">                        {/* HEADER COLABORADORES */}
+                    <div className="overflow-auto">                        {/* HEADER COLABORADORES */}
                         <div
                             className="grid"
                             style={{
-                                gridTemplateColumns: `80px repeat(${colaboradores.length}, minmax(90px, 1fr))`
+                                gridTemplateColumns: `80px repeat(${colaboradoresVisiveis.length}, minmax(${larguraColuna}px, 1fr))`
                             }}
                         >
                             <div></div>
-                            {colaboradores.map(col => (
-                                <div
-                                    key={col.id}
-                                    className={`text-center font-semibold p-3 text-white ${getCorColaborador(col.id)}`}
-                                >
-                                    {col.nome}
-                                </div>
-                            ))}
-                        </div>
+                            {colaboradoresVisiveis.map(id => {
 
-                        <div className="w-full overflow-x-auto border-b bg-white">
-                            <div className="flex gap-2 px-2 py-2 min-w-max">
+                                const col = colaboradores.find(c => c.id === id)
 
-                                {/* ABA TODOS */}
-                                <button
-                                    onClick={() => setColaboradorFiltro("")}
-                                    className={`
-                px-4 py-2 rounded-full text-sm whitespace-nowrap transition
-                ${!colaboradorFiltro
-                                            ? "bg-black text-white"
-                                            : "bg-gray-200 hover:bg-gray-300"}
-            `}
-                                >
-                                    Todos
-                                </button>
+                                if (!col) return null
 
-                                {/* ABAS COLABORADORES */}
-                                {colaboradores.map(col => (
-                                    <button
+                                return (
+                                    <div
                                         key={col.id}
-                                        onClick={() => setColaboradorFiltro(col.id)}
-                                        className={`
-                    px-4 py-2 rounded-full text-sm whitespace-nowrap text-white transition
-                    ${getCorColaborador(col.id)}
-                    ${colaboradorFiltro === col.id
-                                                ? "ring-2 ring-black scale-105"
-                                                : "opacity-70"}
-                `}
+                                        className={`text-center font-semibold p-3 text-white ${getCorColaborador(col.id)}`}
                                     >
                                         {col.nome}
-                                    </button>
-                                ))}
-
-                            </div>
+                                    </div>
+                                )
+                            })}
                         </div>
+
 
                         {/* LINHAS DE HORÁRIO */}
                         {horas.map(hora => (
@@ -675,7 +807,7 @@ export default function Agenda() {
                                 key={hora}
                                 className="grid"
                                 style={{
-                                    gridTemplateColumns: `${larguraHora}px repeat(${colaboradores.length}, minmax(${larguraColuna}px, 1fr))`
+                                    gridTemplateColumns: `${larguraHora}px repeat(${colaboradoresVisiveis.length}, minmax(${larguraColuna}px, 1fr))`
                                 }}
                             >
 
@@ -685,37 +817,39 @@ export default function Agenda() {
                                 </div>
 
                                 {/* COLUNAS */}
-                                {colaboradores.map(col => {
-                                    const eventos = getEventosHoraColaborador(hora, col.id)
-                                    const ocupado = eventos.length > 0
+                                {colaboradores
+                                    .filter(col => colaboradoresVisiveis.includes(col.id))
+                                    .map(col => {
+                                        const eventos = getEventosHoraColaborador(hora, col.id)
+                                        const ocupado = eventos.length > 0
 
-                                    return (
-                                        <div
-                                            key={col.id}
-                                            className={`
+                                        return (
+                                            <div
+                                                key={col.id}
+                                                className={`
                             relative h-24 border-r transition
-                            ${colaboradorFiltro === col.id ? "bg-yellow-50" : ""}
+                            
                             ${ocupado ? "bg-gray-50" : "hover:bg-gray-100"}
                         `}
-                                            onClick={() => {
-                                                if (!ocupado) {
-                                                    setColaboradorId(col.id)
-                                                    abrirNovo(hora)
-                                                }
-                                            }}
-                                        >
+                                                onClick={() => {
+                                                    if (!ocupado) {
+                                                        setColaboradorId(col.id)
+                                                        abrirNovo(hora)
+                                                    }
+                                                }}
+                                            >
 
-                                            {eventos.map((evt, i) => {
-                                                const cliente = getCliente(evt.cliente_id)
+                                                {eventos.map((evt, i) => {
+                                                    const cliente = getCliente(evt.cliente_id)
 
-                                                return (
-                                                    <div
-                                                        key={i}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            abrirEvento(evt)
-                                                        }}
-                                                        className={`
+                                                    return (
+                                                        <div
+                                                            key={i}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                abrirEvento(evt)
+                                                            }}
+                                                            className={`
                                         absolute inset-1
                                         rounded-lg
                                         shadow-sm
@@ -726,21 +860,21 @@ export default function Agenda() {
                                         rounded p-2 text-xs
                                         cursor-pointer
                                     `}
-                                                    >
-                                                        <div className="font-semibold text-sm leading-tight">
-                                                            {cliente?.nome}
-                                                        </div>
+                                                        >
+                                                            <div className="font-semibold text-sm leading-tight">
+                                                                {cliente?.nome}
+                                                            </div>
 
-                                                        <div className="text-[10px] opacity-80">
-                                                            {hora}
+                                                            <div className="text-[10px] opacity-80">
+                                                                {hora}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )
-                                            })}
+                                                    )
+                                                })}
 
-                                        </div>
-                                    )
-                                })}
+                                            </div>
+                                        )
+                                    })}
 
                             </div>
                         ))}
