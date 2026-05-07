@@ -15,38 +15,51 @@ export default function Colaboradores() {
     const [empresaId, setEmpresaId] = useState(null)
 
     useEffect(() => {
-
-        carregar()
-
-        async function carregarPerfil() {
-
-            if (!user) return
-
-            const { data, error } = await supabase
-                .from("perfis")
-                .select("*")
-                .eq("user_id", user.id)
-                .single()
-
-            if (error) {
-                console.log(error)
-                return
-            }
-
-            console.log("EMPRESA:", data.empresa_id)
-
-            setEmpresaId(data.empresa_id)
+        if (empresaId) {
+            carregar()
         }
+    }, [empresaId])
 
-        carregarPerfil()
-
+    useEffect(() => {
+        carregarEmpresa()
     }, [user])
 
+    async function carregarEmpresa() {
+
+        const { data: authData } = await supabase.auth.getUser()
+
+        if (!authData?.user?.id) return
+
+        const { data, error } = await supabase
+            .from("perfis")
+            .select("empresa_id")
+            .eq("user_id", authData.user.id)
+            .single()
+
+        if (error) {
+            console.log(error)
+            return
+        }
+
+        setEmpresaId(data.empresa_id)
+    }
+
     async function carregar() {
-        const { data } = await supabase
+
+        if (!empresaId) return
+
+        const { data, error } = await supabase
             .from("colaboradores")
             .select("*")
+            .eq("empresa_id", empresaId)
             .order("created_at", { ascending: false })
+
+        console.log("COLABORADORES EMPRESA:", data)
+
+        if (error) {
+            console.log(error)
+            return
+        }
 
         setColaboradores(data || [])
     }
