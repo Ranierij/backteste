@@ -483,8 +483,9 @@ export default function Agenda() {
                 .from("agendamentos")
                 .insert({
                     user_id: user.id,
+                    empresa_id: empresaId,
                     cliente_id: clienteId,
-                    servico_id: servicoId, // 🔥 NOVO
+                    servico_id: servicoId,
                     colaborador_id: colaboradorId,
                     inicio: inicioStr,
                     fim: fimStr,
@@ -492,7 +493,7 @@ export default function Agenda() {
                     hora: horaSelecionada,
                     forma_pagamento: formaPagamento,
                     valor: Number(valor),
-                    duracao: duracao // 🔥 importante pra agenda inteligente
+                    duracao: duracao
                 })
 
             if (error) {

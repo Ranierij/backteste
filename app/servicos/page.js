@@ -83,9 +83,10 @@ export default function Servicos() {
                 .from("servicos")
                 .insert({
                     nome,
-                    valor: parseFloat(valor),
-                    duracao: duracao ? parseInt(duracao) : null,
-                    user_id: userId
+                    valor,
+                    duracao,
+                    user_id: authData.user.id,
+                    empresa_id: perfil.empresa_id
                 })
 
             error = res.error
