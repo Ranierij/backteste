@@ -97,7 +97,7 @@ export default function Agenda() {
 
     const [colaboradores, setColaboradores] = useState([])
     const [colaboradorId, setColaboradorId] = useState("")
-
+    const [loadingEmpresa, setLoadingEmpresa] = useState(true)
 
     const HORA_ALTURA = 80 // px por hora
     const PIXEL_POR_MINUTO = HORA_ALTURA / 60
@@ -159,7 +159,7 @@ export default function Agenda() {
                     .from("perfis")
                     .select("*")
                     .eq("user_id", user.id)
-                    .single()
+                    .maybeSingle()
 
             ])
 
@@ -195,23 +195,41 @@ export default function Agenda() {
 
         async function carregarPerfil() {
 
-            if (!user) return
+            console.log("INICIO carregarPerfil")
+
+            if (!user) {
+                console.log("SEM USER")
+                setLoadingEmpresa(false)
+                return
+            }
 
             const { data, error } = await supabase
                 .from("perfis")
                 .select("*")
                 .eq("user_id", user.id)
-                .single()
+                .maybeSingle()
+
+            console.log("DATA PERFIL:", data)
+            console.log("ERRO PERFIL:", error)
 
             if (error) {
-                console.log("ERRO PERFIL:", error)
+                setLoadingEmpresa(false)
                 return
             }
 
-            console.log("PERFIL:", data)
+            if (!data) {
+                console.log("PERFIL NÃO EXISTE")
+
+                setLoadingEmpresa(false)
+                return
+            }
 
             setPerfil(data)
             setEmpresaId(data.empresa_id)
+
+            console.log("EMPRESA ID:", data.empresa_id)
+
+            setLoadingEmpresa(false)
         }
 
         carregarPerfil()
@@ -249,8 +267,8 @@ export default function Agenda() {
     // todos useState, useEffect, useCallback aqui em cima
 
     if (loading) return <div>Carregando usuário...</div>
-    if (!empresaId) return <div>Carregando empresa...</div>
-    if (!user) return null
+    if (loadingEmpresa) return <div>Carregando empresa...</div>
+    if (!user && !loading) return <div>Carregando usuário...</div>
 
     function formatarData(d) {
         return d.toLocaleDateString("pt-BR")
@@ -897,6 +915,7 @@ export default function Agenda() {
 
                                                 {eventos.map((evt, i) => {
                                                     const cliente = getCliente(evt.cliente_id)
+                                                    const servico = servicos.find(s => s.id === evt.servico_id)
 
                                                     return (
                                                         <div
@@ -919,6 +938,10 @@ export default function Agenda() {
                                                         >
                                                             <div className="font-semibold text-sm leading-tight">
                                                                 {cliente?.nome}
+                                                            </div>
+
+                                                            <div className="text-[12px] opacity-90 mt-1">
+                                                                {servico?.nome}
                                                             </div>
 
                                                             <div className="text-[10px] opacity-80">

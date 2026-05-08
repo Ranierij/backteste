@@ -22,6 +22,8 @@ export default function NovoCliente() {
     const [clientes, setClientes] = useState([])
     const [modalNovo, setModalNovo] = useState(false)
     const [endereco, setEndereco] = useState("")
+    const [menuAberto, setMenuAberto] = useState(null)
+
     const [numero, setNumero] = useState("")
     const [cep, setCep] = useState("")
     const [bairro, setBairro] = useState("")
@@ -119,6 +121,19 @@ export default function NovoCliente() {
         router.refresh()
     }
 
+    function editar(cliente) {
+
+        setNome(cliente.nome || "")
+        setTelefone(cliente.telefone || "")
+
+        if (cliente.nascimento) {
+            setNascimento(new Date(cliente.nascimento))
+        }
+
+        setMenuAberto(null)
+
+        router.push(`/clientes/${cliente.id}`)
+    }
 
     const clientesFiltrados = clientes.filter(cliente =>
         cliente.nome?.toLowerCase().includes(
@@ -209,12 +224,13 @@ export default function NovoCliente() {
                     <div
                         key={cliente.id}
                         className="
-                        flex items-center justify-between
-                        px-6 py-4
-                        border-b
-                        hover:bg-gray-50
-                        transition
-                    "
+        relative
+        flex items-center justify-between
+        px-6 py-4
+        border-b
+        hover:bg-gray-50
+        transition
+    "
                     >
 
                         <div className="flex items-center gap-4">
@@ -239,9 +255,37 @@ export default function NovoCliente() {
 
                         </div>
 
-                        <button className="text-gray-500 text-xl">
+                        <button
+                            onClick={() => {
+                                if (menuAberto === cliente.id) {
+                                    setMenuAberto(null)
+                                } else {
+                                    setMenuAberto(cliente.id)
+                                }
+                            }}
+                            className="p-2"
+                        >
                             ⋮
                         </button>
+                        {menuAberto === cliente.id && (
+                            <div className="absolute right-0 mt-2 bg-white border rounded shadow-lg z-50">
+
+                                <button
+                                    onClick={() => router.push(`/clientes/${cliente.id}`)}
+                                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                                >
+                                    Editar
+                                </button>
+
+                                <button
+                                    onClick={() => excluir(cliente.id)}
+                                    className="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                                >
+                                    Excluir
+                                </button>
+
+                            </div>
+                        )}
 
                     </div>
 
