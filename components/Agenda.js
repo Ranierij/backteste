@@ -932,72 +932,37 @@ export default function Agenda() {
                                         return (
                                             <div
                                                 key={col.id}
-                                                className={`
-        relative group h-24 border-r transition
-        ${ocupado ? "bg-gray-50" : "hover:bg-gray-100"}
-    `}
+                                                className={`relative group h-24 border-r transition ${ocupado ? "bg-gray-50" : "hover:bg-gray-100"}`}
                                                 onClick={() => {
                                                     if (!ocupado) {
-
-                                                        router.push(
-                                                            `/agenda/novo?hora=${hora}&colaborador=${col.id}`
-                                                        )
-
+                                                        // Redireciona para a tela de atendimento
+                                                        router.push(`/agenda/novo?hora=${encodeURIComponent(hora)}&colaborador=${col.id}`)
                                                     }
                                                 }}
                                             >
                                                 {!ocupado && (
-                                                    <div
-                                                        className="
-            absolute inset-0
-            hidden group-hover:flex
-            items-center justify-center
-            text-gray-400
-            text-sm font-medium
-            pointer-events-none
-        "
-                                                    >
+                                                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center text-gray-400 text-sm font-medium pointer-events-none">
                                                         Adicionar Agendamento
                                                     </div>
                                                 )}
-                                                {eventos.map((evt, i) => {
-                                                    const cliente = getCliente(evt.cliente_id)
-                                                    const servico = servicos.find(s => s.id === evt.servico_id)
-
-                                                    return (
-                                                        <div
-                                                            key={i}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                abrirEvento(evt)
-                                                            }}
-                                                            className={`
-                                        absolute inset-1
-                                        rounded-lg
-                                        shadow-sm
-                                        hover:shadow-md
-                                        transition
-                                        ${getCorColaborador(evt.colaborador_id)}
-                                        text-white
-                                        rounded p-2 text-xs
-                                        cursor-pointer
-                                    `}
-                                                        >
-                                                            <div className="font-semibold text-sm leading-tight">
-                                                                {cliente?.nome}
-                                                            </div>
-
-                                                            <div className="text-[12px] opacity-90 mt-1">
-                                                                {servico?.nome}
-                                                            </div>
-
-                                                            <div className="text-[10px] opacity-80">
-                                                                {hora}
-                                                            </div>
+                                                {eventos.map((evt, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`absolute inset-1 rounded-lg shadow-sm hover:shadow-md transition text-white p-2 text-xs cursor-pointer ${getCorColaborador(evt.colaborador_id)}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            abrirEvento(evt)
+                                                        }}
+                                                    >
+                                                        <div className="font-semibold text-sm leading-tight">
+                                                            {getCliente(evt.cliente_id)?.nome}
                                                         </div>
-                                                    )
-                                                })}
-
+                                                        <div className="text-[12px] opacity-90 mt-1">
+                                                            {servicos.find(s => s.id === evt.servico_id)?.nome}
+                                                        </div>
+                                                        <div className="text-[10px] opacity-80">{hora}</div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )
                                     })}
