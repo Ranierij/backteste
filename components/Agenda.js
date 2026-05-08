@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { usePathname, useRouter } from "next/navigation"
@@ -76,6 +76,10 @@ export default function Agenda() {
     const { user, loading } = useAuth()
 
     const [clienteId, setClienteId] = useState("")
+    const [buscaCliente, setBuscaCliente] = useState("")
+    const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false)
+    const [mostrarBuscaColaborador, setMostrarBuscaColaborador] = useState(false)
+    const buscaRef = useRef(null)
     const [duracao, setDuracao] = useState(60)
 
 
@@ -113,6 +117,16 @@ export default function Agenda() {
 
     const HORA_INICIO = 8
     const HORA_FIM = 22
+
+    const clientesFiltrados = clientes.filter(cliente => {
+
+        const termo = buscaCliente.toLowerCase()
+
+        return (
+            cliente.nome?.toLowerCase().includes(termo) ||
+            cliente.telefone?.toLowerCase().includes(termo)
+        )
+    })
 
     const horas = []
 
@@ -262,6 +276,26 @@ export default function Agenda() {
         return () => {
             window.removeEventListener("resize", handleResize)
         }
+    }, [])
+
+    useEffect(() => {
+
+        function handleClickOutside(event) {
+
+            if (
+                buscaRef.current &&
+                !buscaRef.current.contains(event.target)
+            ) {
+                setMostrarBuscaCliente(false)
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside)
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside)
+        }
+
     }, [])
 
     // todos useState, useEffect, useCallback aqui em cima
@@ -737,42 +771,40 @@ export default function Agenda() {
 
                             <div className="flex flex-col gap-2">
 
-                                {colaboradores
-                                    .filter(col => colaboradoresVisiveis.includes(col.id))
-                                    .map(col => (
+                                {colaboradores.map(col => (
 
-                                        <label
-                                            key={col.id}
-                                            className="
+                                    <label
+                                        key={col.id}
+                                        className="
                             flex items-center gap-3
                             p-2 rounded-lg
                             hover:bg-gray-100
                             cursor-pointer
                             transition
                         "
-                                        >
+                                    >
 
-                                            <input
-                                                type="checkbox"
-                                                checked={colaboradoresVisiveis.includes(col.id)}
-                                                onChange={() => toggleColaborador(col.id)}
-                                                className="w-4 h-4"
-                                            />
+                                        <input
+                                            type="checkbox"
+                                            checked={colaboradoresVisiveis.includes(col.id)}
+                                            onChange={() => toggleColaborador(col.id)}
+                                            className="w-4 h-4"
+                                        />
 
-                                            <div
-                                                className={`
+                                        <div
+                                            className={`
                                 w-3 h-3 rounded-full
                                 ${getCorColaborador(col.id)}
                             `}
-                                            />
+                                        />
 
-                                            <span className="text-sm">
-                                                {col.nome}
-                                            </span>
+                                        <span className="text-sm">
+                                            {col.nome}
+                                        </span>
 
-                                        </label>
+                                    </label>
 
-                                    ))}
+                                ))}
 
                             </div>
 
@@ -901,18 +933,33 @@ export default function Agenda() {
                                             <div
                                                 key={col.id}
                                                 className={`
-                            relative h-24 border-r transition
-                            
-                            ${ocupado ? "bg-gray-50" : "hover:bg-gray-100"}
-                        `}
+        relative group h-24 border-r transition
+        ${ocupado ? "bg-gray-50" : "hover:bg-gray-100"}
+    `}
                                                 onClick={() => {
                                                     if (!ocupado) {
-                                                        setColaboradorId(col.id)
-                                                        abrirNovo(hora)
+
+                                                        router.push(
+                                                            `/agenda/novo?hora=${hora}&colaborador=${col.id}`
+                                                        )
+
                                                     }
                                                 }}
                                             >
-
+                                                {!ocupado && (
+                                                    <div
+                                                        className="
+            absolute inset-0
+            hidden group-hover:flex
+            items-center justify-center
+            text-gray-400
+            text-sm font-medium
+            pointer-events-none
+        "
+                                                    >
+                                                        Adicionar Agendamento
+                                                    </div>
+                                                )}
                                                 {eventos.map((evt, i) => {
                                                     const cliente = getCliente(evt.cliente_id)
                                                     const servico = servicos.find(s => s.id === evt.servico_id)
@@ -973,32 +1020,121 @@ export default function Agenda() {
                                 Novo Agendamento ({horaSelecionada})
                             </h2>
 
-                            <select
-                                value={clienteId}
-                                onChange={(e) => setClienteId(e.target.value)}
-                                className="w-full border p-2 mb-3 rounded"
-                            >
-                                <option value="">Selecione o cliente</option>
-                                {clientes.map(c => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.nome}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative mb-3">
 
-                            <select
-                                value={colaboradorId}
-                                onChange={(e) => setColaboradorId(e.target.value)}
-                                className="w-full border p-2 mb-3 rounded"
-                            >
-                                <option value="">Selecione o colaborador</option>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar cliente por nome ou telefone..."
+                                    value={buscaCliente}
+                                    onChange={(e) => {
+                                        setBuscaCliente(e.target.value)
+                                        setMostrarBuscaCliente(true)
+                                    }}
+                                    onFocus={() => setMostrarBuscaCliente(true)}
+                                    className="w-full border p-3 rounded"
+                                />
 
-                                {colaboradores.map(c => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.nome}
-                                    </option>
-                                ))}
-                            </select>
+                                {mostrarBuscaCliente && buscaCliente && (
+
+                                    <div className="
+            absolute z-50
+            w-full bg-white border rounded-lg shadow-lg
+            max-h-60 overflow-y-auto mt-1
+        ">
+
+                                        {clientesFiltrados.length === 0 && (
+                                            <div className="p-3 text-gray-500">
+                                                Nenhum cliente encontrado
+                                            </div>
+                                        )}
+
+                                        {clientesFiltrados.map(cliente => (
+
+                                            <div
+                                                key={cliente.id}
+                                                onClick={() => {
+                                                    setClienteId(cliente.id)
+
+                                                    setBuscaCliente(
+                                                        `${cliente.nome} - ${cliente.telefone || ""}`
+                                                    )
+
+                                                    setMostrarBuscaCliente(false)
+                                                }}
+                                                className="
+                        p-3 cursor-pointer
+                        hover:bg-gray-100
+                        border-b
+                    "
+                                            >
+
+                                                <div className="font-medium">
+                                                    {cliente.nome}
+                                                </div>
+
+                                                <div className="text-sm text-gray-500">
+                                                    {cliente.telefone}
+                                                </div>
+
+                                            </div>
+
+                                        ))}
+
+                                    </div>
+
+                                )}
+
+                            </div>
+
+                            <div className="relative mb-3">
+
+                                <input
+                                    type="text"
+                                    placeholder="Buscar profissional..."
+                                    value={
+                                        colaboradores.find(c => c.id === colaboradorId)?.nome || ""
+                                    }
+                                    onFocus={() => setMostrarBuscaColaborador(true)}
+                                    readOnly
+                                    className="w-full border p-3 rounded"
+                                />
+
+                                {mostrarBuscaColaborador && (
+
+                                    <div className="
+            absolute z-50
+            w-full bg-white border rounded-lg shadow-lg
+            max-h-60 overflow-y-auto mt-1
+        ">
+
+                                        {colaboradores.map(col => (
+
+                                            <div
+                                                key={col.id}
+                                                onClick={() => {
+                                                    setColaboradorId(col.id)
+                                                    setMostrarBuscaColaborador(false)
+                                                }}
+                                                className="
+                        p-3 cursor-pointer
+                        hover:bg-gray-100
+                        border-b
+                    "
+                                            >
+
+                                                <div className="font-medium">
+                                                    {col.nome}
+                                                </div>
+
+                                            </div>
+
+                                        ))}
+
+                                    </div>
+
+                                )}
+
+                            </div>
 
                             <select
                                 value={servicoId}

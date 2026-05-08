@@ -1,0 +1,630 @@
+"use client"
+
+import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/contexts/AuthContext"
+
+export default function NovoAgendamento() {
+
+    const router = useRouter()
+    const { user } = useAuth()
+
+    const searchParams = useSearchParams()
+
+    const hora = searchParams.get("hora")
+    const colaborador = searchParams.get("colaborador")
+
+    const [cliente, setCliente] = useState("")
+    const [servico, setServico] = useState("")
+    const [valor, setValor] = useState("")
+    const [duracao, setDuracao] = useState("60")
+    const [observacao, setObservacao] = useState("")
+    const [repetir, setRepetir] = useState(false)
+    const [diasRepeticao, setDiasRepeticao] = useState(30)
+
+    const [clientes, setClientes] = useState([])
+    const [servicos, setServicos] = useState([])
+    const [colaboradores, setColaboradores] = useState([])
+
+    const [clienteId, setClienteId] = useState("")
+    const [buscaCliente, setBuscaCliente] = useState("")
+    const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false)
+    const [servicoId, setServicoId] = useState("")
+
+    const [mostrarBuscaColaborador, setMostrarBuscaColaborador] = useState(false)
+    const [colaboradorId, setColaboradorId] = useState(colaborador || "")
+
+
+    useEffect(() => {
+
+        if (user) {
+            carregarDados()
+        }
+
+    }, [user])
+
+    useEffect(() => {
+
+        if (!colaborador || colaboradores.length === 0) return
+
+        const profissional = colaboradores.find(
+            c => c.id === colaborador
+        )
+
+        if (profissional) {
+
+
+            setColaboradorId(profissional.id)
+        }
+
+    }, [colaborador, colaboradores])
+
+    useEffect(() => {
+
+        if (colaboradores.length > 0 && colaborador) {
+
+            const profissional = colaboradores.find(
+                c => c.id === colaborador
+            )
+
+            if (profissional) {
+                setColaboradorId(profissional.id)
+            }
+        }
+
+    }, [colaboradores, colaborador])
+
+
+    async function carregarDados() {
+
+        if (!user) return
+
+        const { data: perfilData } = await supabase
+            .from("perfis")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+        const empresaId = perfilData?.empresa_id
+
+
+
+        const { data: colaboradoresData } = await supabase
+            .from("colaboradores")
+            .select("*")
+            .eq("empresa_id", empresaId)
+            .order("nome")
+
+        setColaboradores(colaboradoresData || [])
+
+        const { data: clientesData } = await supabase
+            .from("clientes")
+            .select("*")
+            .eq("empresa_id", empresaId)
+            .order("nome")
+
+        const { data: servicosData } = await supabase
+            .from("servicos")
+            .select("*")
+            .eq("empresa_id", empresaId)
+            .order("nome")
+
+
+
+        setClientes(clientesData || [])
+        setServicos(servicosData || [])
+        setColaboradores(colaboradoresData || [])
+    }
+
+    const clientesFiltrados = clientes.filter(cliente => {
+
+        const termo = buscaCliente.toLowerCase()
+
+        return (
+            cliente.nome?.toLowerCase().includes(termo) ||
+            cliente.telefone?.toLowerCase().includes(termo)
+        )
+    })
+
+    async function salvarAgendamento() {
+
+        if (!clienteId) {
+            alert("Selecione o cliente")
+            return
+        }
+
+        if (!colaboradorId) {
+            alert("Selecione o profissional")
+            return
+        }
+
+        if (!servicoId) {
+            alert("Selecione o serviço")
+            return
+        }
+
+        const { data: perfilData } = await supabase
+            .from("perfis")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+        const empresaId = perfilData?.empresa_id
+
+        const hoje = new Date()
+
+        const dataFormatada =
+            hoje.getFullYear() + "-" +
+            String(hoje.getMonth() + 1).padStart(2, "0") + "-" +
+            String(hoje.getDate()).padStart(2, "0")
+
+        const [h, m] = hora.split(":")
+
+        const inicio = new Date()
+
+        inicio.setHours(Number(h))
+        inicio.setMinutes(Number(m))
+        inicio.setSeconds(0)
+
+        const fim = new Date(
+            inicio.getTime() + Number(duracao) * 60000
+        )
+
+        function formatarData(date) {
+
+            const pad = (n) => String(n).padStart(2, "0")
+
+            return (
+                date.getFullYear() + "-" +
+                pad(date.getMonth() + 1) + "-" +
+                pad(date.getDate()) + " " +
+                pad(date.getHours()) + ":" +
+                pad(date.getMinutes()) + ":00"
+            )
+        }
+
+        const { error } = await supabase
+            .from("agendamentos")
+            .insert({
+                empresa_id: empresaId,
+                cliente_id: clienteId,
+                colaborador_id: colaboradorId,
+                servico_id: servicoId,
+                inicio: formatarData(inicio),
+                fim: formatarData(fim),
+                valor: Number(valor),
+                duracao: Number(duracao),
+                observacao,
+                data: dataFormatada,
+                hora
+            })
+
+        if (error) {
+
+            console.log(error)
+
+            alert("Erro ao salvar")
+
+            return
+        }
+
+        alert("Agendamento criado!")
+
+        router.push("/agenda")
+    }
+
+
+    return (
+
+        <div className="min-h-screen bg-gray-100 p-6">
+
+            <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-sm p-8">
+
+                {/* HEADER */}
+                <div className="flex items-center gap-4 mb-8">
+
+                    <button
+                        onClick={() => router.back()}
+                        className="text-2xl"
+                    >
+                        ←
+                    </button>
+
+                    <h1 className="text-2xl font-semibold">
+                        Atendimento
+                    </h1>
+
+                </div>
+
+                {/* CLIENTE */}
+                <div className="mb-6">
+
+                    <label className="block text-sm mb-2">
+                        Cliente
+                    </label>
+
+                    <div className="relative mb-3">
+
+                        <input
+                            type="text"
+                            placeholder="Buscar cliente por nome ou telefone..."
+                            value={buscaCliente}
+                            onChange={(e) => {
+                                setBuscaCliente(e.target.value)
+                                setMostrarBuscaCliente(true)
+                            }}
+                            onFocus={() => setMostrarBuscaCliente(true)}
+                            className="w-full border p-3 rounded-xl"
+                        />
+
+                        {mostrarBuscaCliente && buscaCliente && (
+
+                            <div className="
+            absolute z-50
+            w-full bg-white border rounded-xl shadow-lg
+            max-h-60 overflow-y-auto mt-1
+        ">
+
+                                {clientesFiltrados.length === 0 && (
+                                    <div className="p-3 text-gray-500">
+                                        Nenhum cliente encontrado
+                                    </div>
+                                )}
+
+                                {clientesFiltrados.map(cliente => (
+
+                                    <div
+                                        key={cliente.id}
+                                        onClick={() => {
+
+                                            setClienteId(cliente.id)
+
+                                            setBuscaCliente(
+                                                `${cliente.nome} - ${cliente.telefone || ""}`
+                                            )
+
+                                            setMostrarBuscaCliente(false)
+                                        }}
+                                        className="
+                        p-3 cursor-pointer
+                        hover:bg-gray-100 border-b
+                    "
+                                    >
+
+                                        <div className="font-medium">
+                                            {cliente.nome}
+                                        </div>
+
+                                        <div className="text-sm text-gray-500">
+                                            {cliente.telefone}
+                                        </div>
+
+                                    </div>
+
+                                ))}
+
+                            </div>
+
+                        )}
+
+                    </div>
+
+                </div>
+
+
+                {/* PROFISSIONAL */}
+                {/* PROFISSIONAL */}
+                <div className="mb-6">
+
+                    <label className="block text-sm mb-2">
+                        Profissional
+                    </label>
+
+                    <div className="relative">
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setMostrarBuscaColaborador(!mostrarBuscaColaborador)
+                            }
+                            className="
+                w-full
+                border
+                rounded-xl
+                p-3
+                flex items-center justify-between
+                bg-white
+            "
+                        >
+
+                            <span>
+
+                                {
+                                    colaboradores.find(c => c.id === colaboradorId)?.nome
+                                    || "Selecione o profissional"
+                                }
+
+                            </span>
+
+                            <span className="text-gray-400">
+                                ▼
+                            </span>
+
+                        </button>
+
+                        {mostrarBuscaColaborador && (
+
+                            <div className="
+                absolute z-50
+                w-full
+                bg-white
+                border
+                rounded-xl
+                shadow-lg
+                mt-1
+                overflow-hidden
+            ">
+
+                                {colaboradores.map(col => (
+
+                                    <button
+                                        key={col.id}
+                                        type="button"
+                                        onClick={() => {
+
+                                            setColaboradorId(col.id)
+
+                                            setMostrarBuscaColaborador(false)
+                                        }}
+                                        className="
+                            w-full text-left
+                            p-3
+                            hover:bg-gray-100
+                            border-b
+                        "
+                                    >
+
+                                        {col.nome}
+
+                                    </button>
+
+                                ))}
+
+                            </div>
+
+                        )}
+
+                    </div>
+
+                </div>
+
+                {/* SERVIÇO */}
+                <div className="mb-6">
+
+                    <label className="block text-sm mb-2">
+                        Serviço
+                    </label>
+
+                    <select
+                        value={servicoId}
+                        onChange={(e) => {
+
+                            const id = e.target.value
+
+                            setServicoId(id)
+
+                            const servicoSelecionado = servicos.find(
+                                s => s.id === id
+                            )
+
+                            if (servicoSelecionado) {
+
+                                setValor(servicoSelecionado.valor || "")
+
+                                setDuracao(
+                                    String(servicoSelecionado.duracao || 60)
+                                )
+                            }
+
+                        }}
+                        className="
+        w-full
+        border
+        rounded-xl
+        p-3
+    "
+                    >
+
+                        <option value="">
+                            Selecione o serviço
+                        </option>
+
+                        {servicos.map(servico => (
+                            <option
+                                key={servico.id}
+                                value={servico.id}
+                            >
+                                {servico.nome}
+                            </option>
+                        ))}
+
+                    </select>
+
+                </div>
+
+                {/* HORA + DURAÇÃO */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+
+                    <div>
+
+                        <label className="block text-sm mb-2">
+                            Horário
+                        </label>
+
+                        <input
+                            type="text"
+                            value={hora || ""}
+                            disabled
+                            className="
+                                w-full
+                                border
+                                rounded-xl
+                                p-3
+                                bg-gray-100
+                            "
+                        />
+
+                    </div>
+
+                    <div>
+
+                        <label className="block text-sm mb-2">
+                            Duração
+                        </label>
+
+                        <select
+                            value={duracao}
+                            onChange={(e) => setDuracao(e.target.value)}
+                            className="
+                                w-full
+                                border
+                                rounded-xl
+                                p-3
+                            "
+                        >
+                            <option value="30">30 min</option>
+                            <option value="60">1 hora</option>
+                            <option value="90">1h30</option>
+                            <option value="120">2 horas</option>
+                            <option value="150">2h30</option>
+                            <option value="180">3 horas</option>
+                        </select>
+
+                    </div>
+
+                </div>
+
+                {/* VALOR */}
+                <div className="mb-6">
+
+                    <label className="block text-sm mb-2">
+                        Valor
+                    </label>
+
+                    <input
+                        type="number"
+                        value={valor}
+                        onChange={(e) => setValor(e.target.value)}
+                        placeholder="R$ 0,00"
+                        className="
+                            w-full
+                            border
+                            rounded-xl
+                            p-3
+                        "
+                    />
+
+                </div>
+
+                {/* OBS */}
+                <div className="mb-6">
+
+                    <label className="block text-sm mb-2">
+                        Observação
+                    </label>
+
+                    <textarea
+                        value={observacao}
+                        onChange={(e) => setObservacao(e.target.value)}
+                        placeholder="Observação"
+                        className="
+                            w-full
+                            border
+                            rounded-xl
+                            p-3
+                            h-28
+                            resize-none
+                        "
+                    />
+
+                </div>
+
+                {/* REPETIR */}
+                <div className="mt-6">
+
+                    <div className="flex items-center justify-between">
+
+                        <span className="text-pink-500 font-medium">
+                            Repetir atendimento
+                        </span>
+
+                        <button
+                            type="button"
+                            onClick={() => setRepetir(!repetir)}
+                            className={`
+                w-12 h-6 rounded-full transition relative
+                ${repetir ? "bg-pink-500" : "bg-gray-300"}
+            `}
+                        >
+                            <div
+                                className={`
+                    absolute top-1 w-4 h-4 bg-white rounded-full transition-all
+                    ${repetir ? "left-7" : "left-1"}
+                `}
+                            />
+                        </button>
+
+                    </div>
+
+                    {repetir && (
+
+                        <div className="mt-4">
+
+                            <label className="text-sm text-gray-600">
+                                Repetir por quantos dias?
+                            </label>
+
+                            <select
+                                value={diasRepeticao}
+                                onChange={(e) => setDiasRepeticao(Number(e.target.value))}
+                                className="w-full border rounded p-2 mt-1"
+                            >
+                                <option value={7}>7 dias</option>
+                                <option value={15}>15 dias</option>
+                                <option value={30}>30 dias</option>
+                                <option value={45}>45 dias</option>
+                            </select>
+
+                        </div>
+
+                    )}
+
+                </div>
+
+
+
+                {/* BOTÃO */}
+                <button
+                    onClick={salvarAgendamento}
+                    className="
+        mt-8
+        w-full
+        bg-pink-600
+        hover:bg-pink-700
+        transition
+        text-white
+        font-semibold
+        p-4
+        rounded-xl
+    "
+                >
+                    SALVAR
+                </button>
+
+            </div>
+
+        </div>
+
+    )
+}
